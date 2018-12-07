@@ -1,0 +1,274 @@
+
+local lib = ffi.load"libsndfile"
+
+local M = {C=lib}
+
+M.formats = formats
+
+local function ffi_string(str)
+    if str==nil then
+        return ""
+    else
+        return ffi.string(str)
+    end
+end
+
+local Sndfile = {}
+Sndfile.__index = Sndfile
+function Sndfile.__new(tt,filename,mode,sr,ch,format)
+
+    local sndfile_ref = ffi.new"SNDFILE_ref"
+    sndfile_ref.sfinfo[0].samplerate = sr or 0
+    sndfile_ref.sfinfo[0].channels = ch or 0
+    sndfile_ref.sfinfo[0].format = format or 0
+    
+    if mode == nil or mode == "r" then
+        mode = lib.SFM_READ
+    elseif mode == "w" then
+        mode = lib.SFM_WRITE
+    elseif mode == "rw" then
+        mode = lib.SFM_RDWR
+    end
+    --sndfile_ref.mode = mode
+    sndfile_ref.sf = lib.sf_open(filename,mode,sndfile_ref.sfinfo)
+    if sndfile_ref.sf==nil then
+        error(ffi_string(lib.sf_strerror(nil)).." "..filename, 2)
+    end
+    return sndfile_ref
+end
+function Sndfile:close()
+    local ret = lib.sf_close(self.sf)
+    if ret~=0 then
+        --return false,lib.sf_error_number(ret)
+        error(ffi_string(lib.sf_error_number(ret)))
+    end
+end
+function Sndfile:frames()
+    return self.sfinfo[0].frames
+end
+function Sndfile:channels()
+    return self.sfinfo[0].channels
+end
+function Sndfile:format()
+    local form = self.sfinfo[0].format
+    local formM = bit.band(form,lib.SF_FORMAT_TYPEMASK)
+    local formS = bit.band(form,lib.SF_FORMAT_SUBMASK)
+    return form, formats[formM],formats[formS]
+end
+function Sndfile:samplerate()
+    return self.sfinfo[0].samplerate
+end
+function Sndfile:seek(frame_count,whence)
+    return lib.sf_seek(self.sf,frame_count,whence)
+end
+
+function Sndfile:readf_double(buffer,frames)
+	return lib.sf_readf_double(self.sf,buffer,frames)
+end
+function Sndfile:readf_float(buffer,frames)
+	return lib.sf_readf_float(self.sf,buffer,frames)
+end
+function Sndfile:readf_int(buffer,frames)
+	return lib.sf_readf_int(self.sf,buffer,frames)
+end
+function Sndfile:readf_short(buffer,frames)
+	return lib.sf_readf_short(self.sf,buffer,frames)
+end
+
+function Sndfile:read_double(buffer,items)
+	return lib.sf_read_double(self.sf,buffer,items)
+end
+function Sndfile:read_float(buffer,items)
+	return lib.sf_read_float(self.sf,buffer,items)
+end
+function Sndfile:read_int(buffer,items)
+	return lib.sf_read_int(self.sf,buffer,items)
+end
+function Sndfile:read_short(buffer,items)
+	return lib.sf_read_short(self.sf,buffer,items)
+end
+
+function Sndfile:writef_double(buffer,frames)
+	return lib.sf_writef_double(self.sf,buffer,frames)
+end
+function Sndfile:writef_float(buffer,frames)
+	return lib.sf_writef_float(self.sf,buffer,frames)
+end
+function Sndfile:writef_int(buffer,frames)
+	return lib.sf_writef_int(self.sf,buffer,frames)
+end
+function Sndfile:writef_short(buffer,frames)
+	return lib.sf_writef_short(self.sf,buffer,frames)
+end
+
+function Sndfile:write_double(buffer,items)
+	return lib.sf_write_double(self.sf,buffer,items)
+end
+function Sndfile:write_float(buffer,items)
+	return lib.sf_write_float(self.sf,buffer,items)
+end
+function Sndfile:write_int(buffer,items)
+	return lib.sf_write_int(self.sf,buffer,items)
+end
+function Sndfile:write_short(buffer,items)
+	return lib.sf_write_short(self.sf,buffer,items)
+end
+---------------
+local t_double = ffi.typeof"double[]"
+local t_float = ffi.typeof"float[]"
+local t_short = ffi.typeof"short[]"
+local t_int = ffi.typeof"int[]"
+local istype = ffi.istype
+local sizeof = ffi.sizeof
+
+function Sndfile:readf(buffer)
+    local bsize = sizeof(buffer)
+    --print(buffer,bsize,type(buffer))
+    local readfunc,frames
+    local ch = self:channels()
+    if istype(t_double,buffer) then
+        readfunc = lib.sf_readf_double
+        frames = bsize/sizeof"double"/ch
+    elseif istype(t_float,buffer) then
+        readfunc = lib.sf_readf_float
+        frames = bsize/sizeof"float"/ch
+    elseif istype(t_int,buffer) then
+        readfunc = lib.sf_readf_int
+        frames = bsize/sizeof"int"/ch
+    elseif istype(t_short,buffer) then
+        readfunc = lib.sf_readf_short
+        frames = bsize/sizeof"short"/ch
+    else
+        error"unknown type of buffer in Sndfile:readf"
+    end
+    assert(math.floor(frames)==frames,"sizeof buffer is not multiple of channels and type")
+    return readfunc(self.sf,buffer,frames)
+end
+
+function Sndfile:writef(buffer)
+    local bsize = sizeof(buffer,nframes)
+    --print(buffer,bsize,type(buffer))
+    local readfunc,frames
+    local ch = self:channels()
+    if istype(t_double,buffer) then
+        readfunc = lib.sf_writef_double
+        frames = bsize/sizeof"double"/ch
+    elseif istype(t_float,buffer) then
+        readfunc = lib.sf_writef_float
+        frames = bsize/sizeof"float"/ch
+    elseif istype(t_int,buffer) then
+        readfunc = lib.sf_writef_int
+        frames = bsize/sizeof"int"/ch
+    elseif istype(t_short,buffer) then
+        readfunc = lib.sf_writef_short
+        frames = bsize/sizeof"short"/ch
+    else
+        error"unknown type of buffer in Sndfile:writef"
+    end
+    assert(math.floor(frames)==frames,"sizeof buffer is not multiple of channels and type")
+    nframes = nframes or frames
+    local ret = readfunc(self.sf,buffer,nframes)
+    assert(ret==nframes,"error writing file")
+end
+M.Sndfile = ffi.metatype("SNDFILE_ref",Sndfile)
+
+function M.version_string()
+    return ffi_string(lib.sf_version_string())
+end
+
+function M.simple_format_count()
+    local  count = ffi.new"int[1]"
+    lib.sf_command (nil, lib.SFC_GET_SIMPLE_FORMAT_COUNT, count, ffi.sizeof("int")) ;
+    return count[0]
+end
+
+function M.simple_format(n)
+    local format_info = ffi.new"SF_FORMAT_INFO[1]"
+    format_info[0].format = n
+    local ret = lib.sf_command (nil, lib.SFC_GET_SIMPLE_FORMAT, format_info, ffi.sizeof(format_info[0]))
+    if(ret~=0) then
+        print("GET_SIMPLE_FORMAT",n,ffi_string(lib.sf_error_number(ret)))
+        error"GET_SIMPLE_FORMAT"
+    end
+    return format_info[0]
+end
+
+function M.simple_formats()
+    local count = M.simple_format_count()
+    local ret = {}
+    for i=0,count-1 do
+        local finfo = M.simple_format(i)
+        table.insert(ret,{format_en=formats[finfo.format], format=finfo.format,name=ffi_string(finfo.name),ext=ffi_string(finfo.extension)})
+    end
+    return ret
+end
+
+function M.major_format_count()
+    local  count = ffi.new"int[1]"
+    lib.sf_command (nil, lib.SFC_GET_FORMAT_MAJOR_COUNT, count, ffi.sizeof("int")) ;
+    return count[0]
+end
+
+function M.major_format(n)
+    local format_info = ffi.new"SF_FORMAT_INFO[1]"
+    format_info[0].format = n
+    local ret = lib.sf_command (nil, lib.SFC_GET_FORMAT_MAJOR, format_info, ffi.sizeof(format_info[0]))
+    if(ret~=0) then
+        print("SFC_GET_FORMAT_MAJOR",n,ffi_string(lib.sf_error_number(ret)))
+        error"SFC_GET_FORMAT_MAJOR"
+    end
+    return format_info[0]
+end
+
+function M.major_formats()
+    local count = M.major_format_count()
+    local ret = {}
+    for i=0,count-1 do
+        local finfo = M.major_format(i)
+        table.insert(ret,{format_en=formats[finfo.format], format=finfo.format,name=ffi_string(finfo.name),ext=ffi_string(finfo.extension)})
+    end
+    return ret
+end
+
+function M.format_subtype_count()
+    local  count = ffi.new"int[1]"
+    lib.sf_command (nil, lib.SFC_GET_FORMAT_SUBTYPE_COUNT, count, ffi.sizeof("int")) ;
+    return count[0]
+end
+
+function M.format_subtype(n)
+    local format_info = ffi.new"SF_FORMAT_INFO[1]"
+    format_info[0].format = n
+    local ret = lib.sf_command (nil, lib.SFC_GET_FORMAT_SUBTYPE, format_info, ffi.sizeof(format_info[0]))
+    if(ret~=0) then
+        print("SFC_GET_FORMAT_SUBTYPE",n,ffi_string(lib.sf_error_number(ret)))
+        error"SFC_GET_FORMAT_SUBTYPE"
+    end
+    return format_info[0]
+end
+
+function M.format_subtypes(parent)
+    local count = M.format_subtype_count()
+    local ret = {}
+    for i=0,count-1 do
+        local finfo = M.format_subtype(i)
+        if (not parent) or bit.bor(parent,finfo.format) then
+            table.insert(ret,{format_en=formats[finfo.format], format=finfo.format,name=ffi_string(finfo.name)})
+        end
+    end
+    return ret
+end
+
+setmetatable(M,{
+__index = function(t,k)
+    local ok,ptr = pcall(function(str) return lib["sf_"..str] end,k)
+    if not ok then ok,ptr = pcall(function(str) return lib["SF_"..str] end,k) end
+    if not ok then ok,ptr = pcall(function(str) return lib[str] end,k) end --some defines without sf_
+    if not ok then error(k.." not found") end
+    rawset(M, k, ptr)
+    return ptr
+end
+})
+
+
+return M
