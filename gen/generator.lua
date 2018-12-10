@@ -66,7 +66,7 @@ typedef struct SNDFILE_ref
 {
 	SNDFILE *sf ;
 	SF_INFO sfinfo[1] ;
-	int ref ;
+	int mode ;
 } SNDFILE_ref;
 
 ]]

@@ -355,7 +355,7 @@ typedef struct SNDFILE_ref
 {
 	SNDFILE *sf ;
 	SF_INFO sfinfo[1] ;
-	int ref ;
+	int mode ;
 } SNDFILE_ref;
 
 ]]local formats = {}
@@ -448,7 +448,7 @@ function Sndfile.__new(tt,filename,mode,sr,ch,format)
     elseif mode == "rw" then
         mode = lib.SFM_RDWR
     end
-    --sndfile_ref.mode = mode
+    sndfile_ref.mode = mode
     sndfile_ref.sf = lib.sf_open(filename,mode,sndfile_ref.sfinfo)
     if sndfile_ref.sf==nil then
         error(ffi_string(lib.sf_strerror(nil)).." "..filename, 2)
@@ -461,6 +461,7 @@ function Sndfile:close()
         --return false,lib.sf_error_number(ret)
         error(ffi_string(lib.sf_error_number(ret)))
     end
+    self.sf = nil
 end
 function Sndfile:frames()
     return self.sfinfo[0].frames
@@ -591,6 +592,16 @@ function Sndfile:writef(buffer)
 end
 M.Sndfile = ffi.metatype("SNDFILE_ref",Sndfile)
 
+function M.get_info(filename)
+   local sf = M.Sndfile(filename)
+   local info = {samplerate = sf.sfinfo[0].samplerate,
+				channels = sf.sfinfo[0].channels,
+				frames = sf.sfinfo[0].frames,
+				format = sf.sfinfo[0].format
+				}
+	sf:close()
+	return info
+end
 function M.version_string()
     return ffi_string(lib.sf_version_string())
 end
