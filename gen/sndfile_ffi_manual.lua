@@ -1,5 +1,5 @@
 
-local lib = ffi.load"libsndfile"
+local lib = ffi.load"sndfile"
 
 local M = {C=lib}
 

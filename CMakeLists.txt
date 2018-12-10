@@ -1,7 +1,7 @@
 PROJECT(libsndfile_ffi)
 #to allow install from subdirectory
 cmake_minimum_required(VERSION 3.13)
-
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
 set(BUILD_SHARED_LIBS ON CACHE INTERNAL "build shared!")
 set(BUILD_PROGRAMS OFF CACHE INTERNAL "dont build programs")

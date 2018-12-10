@@ -418,7 +418,7 @@ formats[2228224] = "SF_FORMAT_RF64"
 formats[268369920] = "SF_FORMAT_TYPEMASK"
 formats[805306368] = "SF_FORMAT_ENDMASK"
 
-local lib = ffi.load"libsndfile"
+local lib = ffi.load"sndfile"
 
 local M = {C=lib}
 
