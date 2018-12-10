@@ -77,7 +77,7 @@ audioplayer.obtained_spec[0]:print()
 --level 0.1, timeoffset 0
 if not audioplayer:insert(filename,0.1,0) then error"failed insert" end
 --will not load, diferent samplerate and channels
-local node2 = audioplayer:insert("arugh.wav",0.1,0.75)
+--local node2 = audioplayer:insert("arugh.wav",0.1,0.75)
 assert(not node2)
 audioplayer:insert(filename,0.1,1.5)
 
