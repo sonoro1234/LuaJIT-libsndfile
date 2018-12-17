@@ -1,7 +1,21 @@
+-------------samplerate conversion
+local srconv = require"samplerate"
+
+ffi_cdef[[
+typedef struct SNDFILE_ref
+{
+    SNDFILE *sf ;
+    SF_INFO sfinfo[1] ;
+    int mode ;
+	unsigned long resampler_frames;
+	float * resampler_buffer;
+	SRC_STATE *resampler;
+} SNDFILE_ref;]]
+
 
 local lib = ffi.load"sndfile"
 
-local M = {C=lib}
+local M = {C=lib, srconv=srconv}
 
 M.formats = formats
 
@@ -34,13 +48,17 @@ function Sndfile.__new(tt,filename,mode,sr,ch,format)
     if sndfile_ref.sf==nil then
         error(ffi_string(lib.sf_strerror(nil)).." "..filename, 2)
     end
+    ffi.gc(sndfile_ref,sndfile_ref.close)
     return sndfile_ref
 end
 function Sndfile:close()
+    ffi.gc(self,nil)
     local ret = lib.sf_close(self.sf)
     if ret~=0 then
-        --return false,lib.sf_error_number(ret)
         error(ffi_string(lib.sf_error_number(ret)))
+    end
+    if self.resampler~=nil then
+        srconv.src_delete(self.resampler)
     end
     self.sf = nil
 end
@@ -64,55 +82,55 @@ function Sndfile:seek(frame_count,whence)
 end
 
 function Sndfile:readf_double(buffer,frames)
-	return lib.sf_readf_double(self.sf,buffer,frames)
+    return lib.sf_readf_double(self.sf,buffer,frames)
 end
 function Sndfile:readf_float(buffer,frames)
-	return lib.sf_readf_float(self.sf,buffer,frames)
+    return lib.sf_readf_float(self.sf,buffer,frames)
 end
 function Sndfile:readf_int(buffer,frames)
-	return lib.sf_readf_int(self.sf,buffer,frames)
+    return lib.sf_readf_int(self.sf,buffer,frames)
 end
 function Sndfile:readf_short(buffer,frames)
-	return lib.sf_readf_short(self.sf,buffer,frames)
+    return lib.sf_readf_short(self.sf,buffer,frames)
 end
 
 function Sndfile:read_double(buffer,items)
-	return lib.sf_read_double(self.sf,buffer,items)
+    return lib.sf_read_double(self.sf,buffer,items)
 end
 function Sndfile:read_float(buffer,items)
-	return lib.sf_read_float(self.sf,buffer,items)
+    return lib.sf_read_float(self.sf,buffer,items)
 end
 function Sndfile:read_int(buffer,items)
-	return lib.sf_read_int(self.sf,buffer,items)
+    return lib.sf_read_int(self.sf,buffer,items)
 end
 function Sndfile:read_short(buffer,items)
-	return lib.sf_read_short(self.sf,buffer,items)
+    return lib.sf_read_short(self.sf,buffer,items)
 end
 
 function Sndfile:writef_double(buffer,frames)
-	return lib.sf_writef_double(self.sf,buffer,frames)
+    return lib.sf_writef_double(self.sf,buffer,frames)
 end
 function Sndfile:writef_float(buffer,frames)
-	return lib.sf_writef_float(self.sf,buffer,frames)
+    return lib.sf_writef_float(self.sf,buffer,frames)
 end
 function Sndfile:writef_int(buffer,frames)
-	return lib.sf_writef_int(self.sf,buffer,frames)
+    return lib.sf_writef_int(self.sf,buffer,frames)
 end
 function Sndfile:writef_short(buffer,frames)
-	return lib.sf_writef_short(self.sf,buffer,frames)
+    return lib.sf_writef_short(self.sf,buffer,frames)
 end
 
 function Sndfile:write_double(buffer,items)
-	return lib.sf_write_double(self.sf,buffer,items)
+    return lib.sf_write_double(self.sf,buffer,items)
 end
 function Sndfile:write_float(buffer,items)
-	return lib.sf_write_float(self.sf,buffer,items)
+    return lib.sf_write_float(self.sf,buffer,items)
 end
 function Sndfile:write_int(buffer,items)
-	return lib.sf_write_int(self.sf,buffer,items)
+    return lib.sf_write_int(self.sf,buffer,items)
 end
 function Sndfile:write_short(buffer,items)
-	return lib.sf_write_short(self.sf,buffer,items)
+    return lib.sf_write_short(self.sf,buffer,items)
 end
 ---------------
 local t_double = ffi.typeof"double[]"
@@ -171,17 +189,56 @@ function Sndfile:writef(buffer)
     local ret = readfunc(self.sf,buffer,nframes)
     assert(ret==nframes,"error writing file")
 end
+
+
+
+local function input_cb(cb_data, out)
+  local sf = ffi.cast("SNDFILE_ref *", cb_data)
+  local readframes = sf:readf_float(sf.resampler_buffer, sf.resampler_frames)
+  out[0] = sf.resampler_buffer
+  return readframes
+end
+
+local table_anchor = {}
+function Sndfile:resampler_create(fr_read, converter)
+    fr_read = fr_read or 1024
+    converter = converter or srconv.SRC_SINC_BEST_QUALITY
+    local buf = ffi.new("float[?]",fr_read * self:channels())
+    self.resampler_frames = fr_read
+    self.resampler_buffer = buf
+    --local sndfile_cb_data = ffi.new("SNDFILE_CB_DATA[1]",{{self,fr_read,buf}})
+    local err = ffi.new"int[1]"
+    local src_state = srconv.src_callback_new(input_cb, converter, self:channels(), err, self)
+    if src_state == nil then 
+        local errstr = ffi_string(srconv.src_strerror(err[0]))
+        error(errstr,2) 
+    end
+    self.resampler = src_state
+end
+
+function Sndfile:resampler_read(ratio, fr_out, data_out)
+    assert(self.resampler~=nil, "before using resampler_read, resampler_create must be used.")
+    ratio = ratio or 1
+    local readfr = srconv.src_callback_read(self.resampler, ratio, fr_out, data_out)
+    local err = srconv.src_error(self.resampler)
+    if err~=0 then 
+        local errstr = ffi_string(srconv.src_strerror(err))
+        error(errstr,2) 
+    end
+    return readfr
+end
+
 M.Sndfile = ffi.metatype("SNDFILE_ref",Sndfile)
 
 function M.get_info(filename)
    local sf = M.Sndfile(filename)
    local info = {samplerate = sf.sfinfo[0].samplerate,
-				channels = sf.sfinfo[0].channels,
-				frames = sf.sfinfo[0].frames,
-				format = sf.sfinfo[0].format
-				}
-	sf:close()
-	return info
+                channels = sf.sfinfo[0].channels,
+                frames = sf.sfinfo[0].frames,
+                format = sf.sfinfo[0].format
+                }
+    sf:close()
+    return info
 end
 function M.version_string()
     return ffi_string(lib.sf_version_string())

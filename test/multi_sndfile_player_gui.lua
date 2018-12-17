@@ -65,22 +65,22 @@ local audioplayer,err = AudioPlayer({
     delayfunc,fxdata,delaycdef)
 
 if not audioplayer then print(err) end
-print("audioplayer.recordfile",audioplayer.recordfile)
+
 print"--------------wanted"
 audioplayer.wanted_spec[0]:print()
 print("---------------opened device",device)
 audioplayer.obtained_spec[0]:print()
 
 ----------------------------------------------------
-
+---[[
 --insert 3 files
 --level 0.1, timeoffset 0
 if not audioplayer:insert(filename,0.1,0) then error"failed insert" end
 --will not load, diferent samplerate and channels
 --local node2 = audioplayer:insert("arugh.wav",0.1,0.75)
-assert(not node2)
+--assert(not node2)
 audioplayer:insert(filename,0.1,1.5)
-
+--]]
 for node in audioplayer:nodes() do
     print("node",node.sf)
 end
@@ -166,7 +166,7 @@ while (not done) do
         audioplayer.obtained_spec[0]:print()
     end
 	
-	if audioplayer.recordfile.sf~=nil then
+	if audioplayer.recordfile~=nil then
 	if ig.Button("close record") then
         audioplayer.recordfile:close()
     end

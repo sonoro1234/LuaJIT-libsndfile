@@ -24,11 +24,12 @@ for line in cp2c.location(pipe,{[[sndfile.-]]},defines) do
 end
 pipe:close()
 os.remove"./outheader.h"
+os.remove"./sndfile.h"
 
 --save preparse
 local txt = table.concat(cdefs,"\n")
 --local txt2 = table.concat(cdefs," rayo ")
-cp2c.save_data("./cpreout.txt",txt)
+--cp2c.save_data("./cpreout.txt",txt)
 
 --parseItems
 local itemarr,items = cp2c.parseItems(txt)
@@ -62,13 +63,6 @@ end
 
 local special =[[
 
-typedef struct SNDFILE_ref
-{
-	SNDFILE *sf ;
-	SF_INFO sfinfo[1] ;
-	int mode ;
-} SNDFILE_ref;
-
 ]]
 
 
@@ -90,12 +84,10 @@ local sndfile_manual = cp2c.read_data("./sndfile_ffi_manual.lua")
 local sdlstr = [[
 local ffi = require"ffi"
 
---uncomment to debug cdef calls]]..
-"\n---[["..[[
 
-local ffi_cdef = ffi.cdef
-ffi.cdef = function(code)
-    local ret,err = pcall(ffi_cdef,code)
+--local ffi_cdef = ffi.cdef
+local ffi_cdef = function(code)
+    local ret,err = pcall(ffi.cdef,code)
     if not ret then
         local lineN = 1
         for line in code:gmatch("([^\n\r]*)\r?\n") do
@@ -106,13 +98,13 @@ ffi.cdef = function(code)
         error"bad cdef"
     end
 end
-]].."--]]"..[[
 
-ffi.cdef]].."[["..table.concat(cdefs,"").."]]"..[[
 
-ffi.cdef]].."[["..table.concat(deftab,"\n").."]]"..[[
+ffi_cdef]].."[["..table.concat(cdefs,"").."]]"..[[
 
-ffi.cdef]].."[["..special.."]]"..[[
+ffi_cdef]].."[["..table.concat(deftab,"\n").."]]"..[[
+
+ffi_cdef]].."[["..special.."]]"..[[
 ]]..format_enums_str..sndfile_manual
 
 cp2c.save_data("./sndfile_ffi.lua",sdlstr)
