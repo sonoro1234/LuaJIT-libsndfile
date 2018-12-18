@@ -201,6 +201,7 @@ end
 
 local table_anchor = {}
 function Sndfile:resampler_create(fr_read, converter)
+    assert(self.resampler==nil, "resampler_create already used.")
     fr_read = fr_read or 1024
     converter = converter or srconv.SRC_SINC_BEST_QUALITY
     local buf = ffi.new("float[?]",fr_read * self:channels())
@@ -214,6 +215,7 @@ function Sndfile:resampler_create(fr_read, converter)
         error(errstr,2) 
     end
     self.resampler = src_state
+    ffi.gc(self,function(t) self:close(buf) end) --anchor buf
 end
 
 function Sndfile:resampler_read(ratio, fr_out, data_out)
