@@ -414,15 +414,25 @@ formats[805306368] = "SF_FORMAT_ENDMASK"
 local srconv = require"samplerate"
 
 ffi_cdef[[
+typedef struct RESAMPLER RESAMPLER;
 typedef struct SNDFILE_ref
 {
     SNDFILE *sf ;
     SF_INFO sfinfo[1] ;
     int mode ;
-	unsigned long resampler_frames;
-	float * resampler_buffer;
-	SRC_STATE *resampler;
-} SNDFILE_ref;]]
+    RESAMPLER *resampler;
+} SNDFILE_ref;
+
+typedef struct RESAMPLER
+{
+  SRC_STATE *src_state;
+  unsigned long resampler_frames;
+  float * resampler_buffer;
+  double ratio;
+  SNDFILE_ref *sf;
+} RESAMPLER;
+
+]]
 
 
 local lib = ffi.load"sndfile"
@@ -438,6 +448,82 @@ local function ffi_string(str)
         return ffi.string(str)
     end
 end
+
+local function input_cb(cb_data, out)
+  local resam = ffi.cast("RESAMPLER *", cb_data)
+  local readframes = resam.sf:readf_float(resam.resampler_buffer, resam.resampler_frames)
+  out[0] = resam.resampler_buffer
+  return readframes
+end
+
+local RESAMPLER = {}
+RESAMPLER.__index = RESAMPLER
+function RESAMPLER:__new(fr_read, converter, sf,ratio)
+    local ret = ffi.new"RESAMPLER"
+    fr_read = fr_read or 1024
+    converter = converter or srconv.SRC_SINC_BEST_QUALITY
+    local buf = ffi.new("float[?]",fr_read * sf:channels())
+    ret.sf = sf
+    ret.resampler_frames = fr_read
+    ret.resampler_buffer = buf
+    ret.ratio = ratio or 1
+    local err = ffi.new"int[1]"
+    local src_state = srconv.src_callback_new(input_cb, converter, sf:channels(), err, ret)
+    if src_state == nil then 
+        local errstr = ffi_string(srconv.src_strerror(err[0]))
+        error(errstr,2) 
+    end
+    ret.src_state = src_state
+    ffi.gc(ret,function(t) ret:delete(buf) end) --anchor buf
+    return ret
+end
+function RESAMPLER:delete()
+    ffi.gc(self,nil)
+    if self.src_state~=nil then
+        srconv.src_delete(self.src_state)
+    end
+end
+function RESAMPLER:set_ratio(ratio)
+    self.ratio = ratio
+    srconv.src_set_ratio(self.src_state)
+end
+function RESAMPLER:read(data_out, fr_out, ratio)
+    if ratio then
+        self.ratio = ratio
+    end
+    local readfr = srconv.src_callback_read(self.src_state, self.ratio, fr_out, data_out)
+    local err = srconv.src_error(self.src_state)
+    if err~=0 then 
+        local errstr = ffi_string(srconv.src_strerror(err))
+        error(errstr,2) 
+    end
+    return readfr
+end
+function RESAMPLER:readf_float(data_out, fr_out, ratio)
+    return self:read(data_out, fr_out, ratio)
+end
+function RESAMPLER:readf_int(data_out, fr_out, ratio)
+    local len = fr_out*self.sf:channels()
+    local bufferf = ffi.new("float[?]", len)
+    local readfr = self:read(bufferf, fr_out, ratio)
+    srconv.src_float_to_int_array (bufferf, data_out,len)
+    return readfr
+end
+function RESAMPLER:readf_short(data_out, fr_out, ratio)
+    local len = fr_out*self.sf:channels()
+    local bufferf = ffi.new("float[?]", len)
+    local readfr = self:read(bufferf, fr_out, ratio)
+    srconv.src_float_to_short_array(bufferf, data_out,len)
+    return readfr
+end
+function RESAMPLER:seek(frame_count,whence)
+    srconv.src_reset(self.src_state)
+    return self.sf:seek(frame_count,whence)
+end
+function RESAMPLER:reset()
+    return srconv.src_reset(self.src_state)
+end
+M.RESAMPLER = ffi.metatype("RESAMPLER",RESAMPLER)
 
 local Sndfile = {}
 Sndfile.__index = Sndfile
@@ -456,21 +542,19 @@ function Sndfile.__new(tt,filename,mode,sr,ch,format)
         mode = lib.SFM_RDWR
     end
     sndfile_ref.mode = mode
-    sndfile_ref.sf = lib.sf_open(filename,mode,sndfile_ref.sfinfo)
-    if sndfile_ref.sf==nil then
+    local sf = lib.sf_open(filename,mode,sndfile_ref.sfinfo)
+    sndfile_ref.sf = sf
+    if sf==nil then
         error(ffi_string(lib.sf_strerror(nil)).." "..filename, 2)
     end
-    ffi.gc(sndfile_ref,sndfile_ref.close)
+    ffi.gc(sndfile_ref,function(t) return sndfile_ref.close(t,sf) end)
     return sndfile_ref
 end
 function Sndfile:close()
     ffi.gc(self,nil)
     local ret = lib.sf_close(self.sf)
     if ret~=0 then
-        error(ffi_string(lib.sf_error_number(ret)))
-    end
-    if self.resampler~=nil then
-        srconv.src_delete(self.resampler)
+        error(ffi_string(lib.sf_error_number(ret)),2)
     end
     self.sf = nil
 end
@@ -490,7 +574,7 @@ function Sndfile:samplerate()
     return self.sfinfo[0].samplerate
 end
 function Sndfile:seek(frame_count,whence)
-    return lib.sf_seek(self.sf,frame_count,whence)
+    return lib.sf_seek(self.sf,frame_count,whence or lib.SF_SEEK_SET)
 end
 
 function Sndfile:readf_double(buffer,frames)
@@ -570,7 +654,7 @@ function Sndfile:readf(buffer)
         readfunc = lib.sf_readf_short
         frames = bsize/sizeof"short"/ch
     else
-        error"unknown type of buffer in Sndfile:readf"
+        error("unknown type of buffer in Sndfile:readf",2)
     end
     assert(math.floor(frames)==frames,"sizeof buffer is not multiple of channels and type")
     return readfunc(self.sf,buffer,frames)
@@ -594,7 +678,7 @@ function Sndfile:writef(buffer)
         readfunc = lib.sf_writef_short
         frames = bsize/sizeof"short"/ch
     else
-        error"unknown type of buffer in Sndfile:writef"
+        error("unknown type of buffer in Sndfile:writef",2)
     end
     assert(math.floor(frames)==frames,"sizeof buffer is not multiple of channels and type")
     nframes = nframes or frames
@@ -602,45 +686,13 @@ function Sndfile:writef(buffer)
     assert(ret==nframes,"error writing file")
 end
 
-
-
-local function input_cb(cb_data, out)
-  local sf = ffi.cast("SNDFILE_ref *", cb_data)
-  local readframes = sf:readf_float(sf.resampler_buffer, sf.resampler_frames)
-  out[0] = sf.resampler_buffer
-  return readframes
-end
-
-local table_anchor = {}
 function Sndfile:resampler_create(fr_read, converter)
     assert(self.resampler==nil, "resampler_create already used.")
-    fr_read = fr_read or 1024
-    converter = converter or srconv.SRC_SINC_BEST_QUALITY
-    local buf = ffi.new("float[?]",fr_read * self:channels())
-    self.resampler_frames = fr_read
-    self.resampler_buffer = buf
-    --local sndfile_cb_data = ffi.new("SNDFILE_CB_DATA[1]",{{self,fr_read,buf}})
-    local err = ffi.new"int[1]"
-    local src_state = srconv.src_callback_new(input_cb, converter, self:channels(), err, self)
-    if src_state == nil then 
-        local errstr = ffi_string(srconv.src_strerror(err[0]))
-        error(errstr,2) 
-    end
-    self.resampler = src_state
-    ffi.gc(self,function(t) self:close(buf) end) --anchor buf
+    self.resampler = M.RESAMPLER(fr_read, converter, self)
+    return self.resampler
 end
 
-function Sndfile:resampler_read(ratio, fr_out, data_out)
-    assert(self.resampler~=nil, "before using resampler_read, resampler_create must be used.")
-    ratio = ratio or 1
-    local readfr = srconv.src_callback_read(self.resampler, ratio, fr_out, data_out)
-    local err = srconv.src_error(self.resampler)
-    if err~=0 then 
-        local errstr = ffi_string(srconv.src_strerror(err))
-        error(errstr,2) 
-    end
-    return readfr
-end
+
 
 M.Sndfile = ffi.metatype("SNDFILE_ref",Sndfile)
 
@@ -670,7 +722,7 @@ function M.simple_format(n)
     local ret = lib.sf_command (nil, lib.SFC_GET_SIMPLE_FORMAT, format_info, ffi.sizeof(format_info[0]))
     if(ret~=0) then
         print("GET_SIMPLE_FORMAT",n,ffi_string(lib.sf_error_number(ret)))
-        error"GET_SIMPLE_FORMAT"
+        error("GET_SIMPLE_FORMAT",2)
     end
     return format_info[0]
 end
@@ -697,7 +749,7 @@ function M.major_format(n)
     local ret = lib.sf_command (nil, lib.SFC_GET_FORMAT_MAJOR, format_info, ffi.sizeof(format_info[0]))
     if(ret~=0) then
         print("SFC_GET_FORMAT_MAJOR",n,ffi_string(lib.sf_error_number(ret)))
-        error"SFC_GET_FORMAT_MAJOR"
+        error("SFC_GET_FORMAT_MAJOR",2)
     end
     return format_info[0]
 end
@@ -724,7 +776,7 @@ function M.format_subtype(n)
     local ret = lib.sf_command (nil, lib.SFC_GET_FORMAT_SUBTYPE, format_info, ffi.sizeof(format_info[0]))
     if(ret~=0) then
         print("SFC_GET_FORMAT_SUBTYPE",n,ffi_string(lib.sf_error_number(ret)))
-        error"SFC_GET_FORMAT_SUBTYPE"
+        error("SFC_GET_FORMAT_SUBTYPE",2)
     end
     return format_info[0]
 end
@@ -746,7 +798,7 @@ __index = function(t,k)
     local ok,ptr = pcall(function(str) return lib["sf_"..str] end,k)
     if not ok then ok,ptr = pcall(function(str) return lib["SF_"..str] end,k) end
     if not ok then ok,ptr = pcall(function(str) return lib[str] end,k) end --some defines without sf_
-    if not ok then error(k.." not found") end
+    if not ok then error(k.." not found",2) end
     rawset(M, k, ptr)
     return ptr
 end
