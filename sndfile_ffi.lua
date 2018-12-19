@@ -485,7 +485,7 @@ function RESAMPLER:delete()
 end
 function RESAMPLER:set_ratio(ratio)
     self.ratio = ratio
-    srconv.src_set_ratio(self.src_state)
+    srconv.src_set_ratio(self.src_state, ratio)
 end
 function RESAMPLER:read(data_out, fr_out, ratio)
     if ratio then
