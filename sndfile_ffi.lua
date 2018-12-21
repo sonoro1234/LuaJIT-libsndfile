@@ -449,16 +449,18 @@ local function ffi_string(str)
     end
 end
 
-local function input_cb(cb_data, out)
+local function input_cb_orig(cb_data, out)
   local resam = ffi.cast("RESAMPLER *", cb_data)
   local readframes = resam.sf:readf_float(resam.resampler_buffer, resam.resampler_frames)
   out[0] = resam.resampler_buffer
   return readframes
 end
+M.resampler_input_cb = input_cb_orig
 
 local RESAMPLER = {}
 RESAMPLER.__index = RESAMPLER
-function RESAMPLER:__new(fr_read, converter, sf,ratio)
+function RESAMPLER:__new(sf,fr_read, converter,input_cb,ratio )
+	input_cb = input_cb or input_cb_orig
     local ret = ffi.new"RESAMPLER"
     fr_read = fr_read or 1024
     converter = converter or srconv.SRC_SINC_BEST_QUALITY
@@ -495,7 +497,7 @@ function RESAMPLER:read(data_out, fr_out, ratio)
     local err = srconv.src_error(self.src_state)
     if err~=0 then 
         local errstr = ffi_string(srconv.src_strerror(err))
-        error(errstr,2) 
+        error("RESAMPLER read error"..errstr,2) 
     end
     return readfr
 end
@@ -686,9 +688,9 @@ function Sndfile:writef(buffer)
     assert(ret==nframes,"error writing file")
 end
 
-function Sndfile:resampler_create(fr_read, converter)
+function Sndfile:resampler_create(fr_read, converter,inputcb)
     assert(self.resampler==nil, "resampler_create already used.")
-    self.resampler = M.RESAMPLER(fr_read, converter, self)
+    self.resampler = M.RESAMPLER(self,fr_read, converter,inputcb)
     return self.resampler
 end
 
