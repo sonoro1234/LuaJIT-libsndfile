@@ -71,7 +71,7 @@ local format_enums = {}
 for i,enum in ipairs(items.enum_re) do
 	local inner = enum:match("%b{}"):sub(2,-2)
 	for name, value in inner:gmatch("(SF_FORMAT%S*)%s*=%s*([^,%s]*)") do
-		print(name,value,tonumber(value))
+		--print(name,value,tonumber(value))
 		assert(not format_enums[tonumber(value)])
 		format_enums[tonumber(value)] = name
 	end
