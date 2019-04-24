@@ -17,7 +17,7 @@ set_target_properties(samplerate PROPERTIES OUTPUT_NAME "samplerate")
 add_custom_target(sndfile_ffi ALL)
 add_dependencies(sndfile_ffi sndfile samplerate)
 
-install(TARGETS sndfile samplerate RUNTIME DESTINATION ${LUAJIT_BIN})
+install(TARGETS sndfile samplerate RUNTIME DESTINATION ${LUAJIT_BIN} LIBRARY DESTINATION ${LUAJIT_BIN})
 INSTALL(FILES sndfile_ffi.lua samplerate.lua DESTINATION ${LUAJIT_BIN}/lua)
 
 
