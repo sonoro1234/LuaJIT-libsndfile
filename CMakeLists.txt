@@ -14,7 +14,7 @@ set(ENABLE_STATIC_RUNTIME OFF CACHE INTERNAL "disable static runtime")
 set(ENABLE_PACKAGE_CONFIG OFF CACHE INTERNAL "disable package config")
 add_subdirectory(libsndfile EXCLUDE_FROM_ALL)
 add_subdirectory(libsamplerate EXCLUDE_FROM_ALL)
-set_target_properties(samplerate PROPERTIES OUTPUT_NAME "samplerate")
+set_target_properties(sndfile PROPERTIES NO_SONAME 1)
 
 add_custom_target(sndfile_ffi ALL)
 add_dependencies(sndfile_ffi sndfile samplerate)
