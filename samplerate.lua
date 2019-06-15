@@ -163,6 +163,6 @@ void src_int_to_float_array (const int *in, float *out, int len) ;
 void src_float_to_int_array (const float *in, int *out, int len) ;
 ]]
 
-local lib = ffi.load"samplerate-0"
+local lib = ffi.load"samplerate"
 
 return lib
