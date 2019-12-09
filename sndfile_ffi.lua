@@ -70,6 +70,7 @@ enum
  SF_FORMAT_DPCM_8 = 0x0050,
  SF_FORMAT_DPCM_16 = 0x0051,
  SF_FORMAT_VORBIS = 0x0060,
+ SF_FORMAT_OPUS = 0x0064,
  SF_FORMAT_ALAC_16 = 0x0070,
  SF_FORMAT_ALAC_20 = 0x0071,
  SF_FORMAT_ALAC_24 = 0x0072,
@@ -135,6 +136,8 @@ enum
  SFC_SET_COMPRESSION_LEVEL = 0x1301,
  SFC_SET_CART_INFO = 0x1400,
  SFC_GET_CART_INFO = 0x1401,
+ SFC_SET_ORIGINAL_SAMPLERATE = 0x1500,
+ SFC_GET_ORIGINAL_SAMPLERATE = 0x1501,
  SFC_TEST_IEEE_FLOAT_REPLACE = 0x6001,
  SFC_SET_ADD_HEADER_PAD_CHUNK = 0x1051,
  SFC_SET_ADD_DITHER_ON_WRITE = 0x1070,
@@ -271,7 +274,7 @@ typedef struct
  int root_key ;
  int future [6] ;
 } SF_LOOP_INFO ;
-typedef struct { char description [256] ; char originator [32] ; char originator_reference [32] ; char origination_date [10] ; char origination_time [8] ; uint32_t time_reference_low ; uint32_t time_reference_high ; short version ; char umid [64] ; char reserved [190] ; uint32_t coding_history_size ; char coding_history [256] ; } SF_BROADCAST_INFO ;
+typedef struct { char description [256] ; char originator [32] ; char originator_reference [32] ; char origination_date [10] ; char origination_time [8] ; uint32_t time_reference_low ; uint32_t time_reference_high ; short version ; char umid [64] ; int16_t loudness_value ; int16_t loudness_range ; int16_t max_true_peak_level ; int16_t max_momentary_loudness ; int16_t max_shortterm_loudness ; char reserved [180] ; uint32_t coding_history_size ; char coding_history [256] ; } SF_BROADCAST_INFO ;
 struct SF_CART_TIMER
 { char usage [4] ;
  int32_t value ;
@@ -378,6 +381,7 @@ formats[67] = "SF_FORMAT_DWVW_N"
 formats[80] = "SF_FORMAT_DPCM_8"
 formats[81] = "SF_FORMAT_DPCM_16"
 formats[96] = "SF_FORMAT_VORBIS"
+formats[100] = "SF_FORMAT_OPUS"
 formats[112] = "SF_FORMAT_ALAC_16"
 formats[113] = "SF_FORMAT_ALAC_20"
 formats[114] = "SF_FORMAT_ALAC_24"
