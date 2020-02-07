@@ -17,6 +17,9 @@ add_subdirectory(libsamplerate EXCLUDE_FROM_ALL)
 set_target_properties(sndfile PROPERTIES NO_SONAME 1)
 set_target_properties(samplerate PROPERTIES OUTPUT_NAME "samplerate")
 
+#necessary from cmake 3.14.0 to avoid header installation
+set_target_properties (sndfile PROPERTIES PUBLIC_HEADER "")
+
 add_custom_target(sndfile_ffi ALL)
 add_dependencies(sndfile_ffi sndfile samplerate)
 
