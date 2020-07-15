@@ -134,6 +134,8 @@ enum
  SFC_RF64_AUTO_DOWNGRADE = 0x1210,
  SFC_SET_VBR_ENCODING_QUALITY = 0x1300,
  SFC_SET_COMPRESSION_LEVEL = 0x1301,
+    SFC_SET_OGG_PAGE_LATENCY_MS = 0x1302,
+    SFC_SET_OGG_PAGE_LATENCY = 0x1303,
  SFC_SET_CART_INFO = 0x1400,
  SFC_GET_CART_INFO = 0x1401,
  SFC_SET_ORIGINAL_SAMPLERATE = 0x1500,
@@ -305,9 +307,9 @@ int sf_error_str (SNDFILE *sndfile, char* str, size_t len) ;
 int sf_command (SNDFILE *sndfile, int command, void *data, int datasize) ;
 int sf_format_check (const SF_INFO *info) ;
 enum
-{ SF_SEEK_SET = 0,
- SF_SEEK_CUR = 1,
- SF_SEEK_END = 2
+{ SF_SEEK_SET =                0                       ,
+ SF_SEEK_CUR =               1                      ,
+ SF_SEEK_END =               2
 } ;
 sf_count_t sf_seek (SNDFILE *sndfile, sf_count_t frames, int whence) ;
 int sf_set_string (SNDFILE *sndfile, int str_type, const char* str) ;
