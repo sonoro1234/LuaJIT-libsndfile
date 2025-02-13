@@ -2,17 +2,17 @@
 ----------------------------------do it
 --sndfile.h.in to sndfile.h
 local cp2c = require"cpp2ffi"
-local header = cp2c.read_data("../libsndfile/src/sndfile.h.in")
-header = header:gsub("@TYPEOF_SF_COUNT_T@","int64_t")
-header = header:gsub("@SF_COUNT_MAX@","0x7FFFFFFFFFFFFFFFLL")
-cp2c.save_data("./sndfile.h",header)
+-- local header = cp2c.read_data("../libsndfile/src/sndfile.h.in")
+-- header = header:gsub("@TYPEOF_SF_COUNT_T@","int64_t")
+-- header = header:gsub("@SF_COUNT_MAX@","0x7FFFFFFFFFFFFFFFLL")
+-- cp2c.save_data("./sndfile.h",header)
 
 --preparse sndfile.h
 local cdefs = {}
 
 cp2c.save_data("./outheader.h",[[#include <sndfile.h>]])
---local pipe,err = io.popen([[gcc -E -dD -I ../libsndfile/src/ ./outheader.h]],"r")
-local pipe,err = io.popen([[gcc -E -dD -I . ./outheader.h]],"r")
+local pipe,err = io.popen([[gcc -E -dD -I ../libsndfile/include/ ./outheader.h]],"r")
+--local pipe,err = io.popen([[gcc -E -dD -I . ./outheader.h]],"r")
 if not pipe then
     error("could not execute gcc "..err)
 end
