@@ -372,11 +372,14 @@ function M.format_subtype(n)
 end
 
 function M.format_subtypes(parent)
+    local sfinfo = ffi.new"SF_INFO[1]"
+    sfinfo[0].channels = 1 
     local count = M.format_subtype_count()
     local ret = {}
     for i=0,count-1 do
         local finfo = M.format_subtype(i)
-        if (not parent) or bit.bor(parent,finfo.format) then
+        sfinfo[0].format = bit.bor(bit.band(parent or 0, lib.SF_FORMAT_TYPEMASK), finfo.format)
+        if(lib.sf_format_check(sfinfo)~=0) then
             table.insert(ret,{format_en=formats[finfo.format], format=finfo.format,name=ffi_string(finfo.name)})
         end
     end
