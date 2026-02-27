@@ -64,6 +64,12 @@ local audioLengthInSeconds = tonumber(info.frames/info.samplerate)
 local dummyX = ffi.new("float[?]",2,{0, audioLengthInSeconds});
 local dummyY = ffi.new("float[?]",2,{1, -1})
 
+local ig = win.ig
+local spec1 = ig.ImPlotSpec()
+spec1.FillAlpha = 0.25
+local spec2 = ig.ImPlotSpec()
+spec2.LineColor = ig.ImVec4(0,0,0,0)
+
 function win:draw(ig)
     ig.ImPlot_ShowDemoWindow()
     ig.Begin("Waveform")
@@ -77,13 +83,10 @@ function win:draw(ig)
                 Bt,Byl,Byh = Resample(widthPix,t1,t2,info,buffer,0)
                 a=widthPix;b=t1;c=t2
             end
-            ig.ImPlot_PushStyleVar(ig.lib.ImPlotStyleVar_FillAlpha, 0.25);
-            ig.ImPlot_PlotShaded("L",Bt, Byl,Byh,widthPix);
-            ig.ImPlot_PlotLine("L",Bt, Byl,widthPix);
-            ig.ImPlot_PlotLine("L",Bt, Byh,widthPix);
-            ig.ImPlot_PopStyleVar()
-            ig.ImPlot_SetNextLineStyle(ig.ImVec4(0,0,0,0)); 
-            ig.ImPlot_PlotLine("##DummyPointsForFitting",dummyX,dummyY,2)
+            ig.ImPlot_PlotShaded("L",Bt, Byl,Byh,widthPix, spec1[0]);
+            ig.ImPlot_PlotLine("L",Bt, Byl,widthPix, spec1[0]);
+            ig.ImPlot_PlotLine("L",Bt, Byh,widthPix, spec1[0]);
+            ig.ImPlot_PlotLine("##DummyPointsForFitting",dummyX,dummyY,2, spec2[0])
             ig.ImPlot_EndPlot();
         end
     ig.End()
