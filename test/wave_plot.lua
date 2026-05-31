@@ -66,7 +66,7 @@ local dummyY = ffi.new("float[?]",2,{1, -1})
 
 local ig = win.ig
 local spec1 = ig.ImPlotSpec()
-spec1.FillAlpha = 0.25
+spec1.FillAlpha = 0.5
 local spec2 = ig.ImPlotSpec()
 spec2.LineColor = ig.ImVec4(0,0,0,0)
 
