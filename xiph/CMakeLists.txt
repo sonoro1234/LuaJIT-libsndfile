@@ -45,7 +45,7 @@ set(Ogg_ROOT ${installed_dir})
 set(Ogg_ROOT ${Ogg_ROOT} PARENT_SCOPE)
 
 message(STATUS "--------------build extenal FLAC------------------------")
-set(argsFLAC "-DOgg_ROOT=${Ogg_ROOT}" "-DINSTALL_MANPAGES=off" "-DBUILD_CXXLIBS=off" "-DBUILD_PROGRAMS=off" "-DBUILD_EXAMPLES=off" "-DBUILD_TESTING=off" "-DBUILD_DOCS=off")
+set(argsFLAC "-DOgg_ROOT=${Ogg_ROOT}" "-DINSTALL_MANPAGES=off" "-DBUILD_CXXLIBS=off" "-DBUILD_PROGRAMS=off" "-DBUILD_EXAMPLES=off" "-DBUILD_TESTING=off" "-DBUILD_DOCS=off" "-DCMAKE_POSITION_INDEPENDENT_CODE=on")
 build_external_project(flac https://github.com/xiph/flac.git 1.5.0 "${argsFLAC}")
 set(FLAC_ROOT ${installed_dir} PARENT_SCOPE)
 
@@ -55,6 +55,6 @@ build_external_project(vorbis https://github.com/xiph/vorbis.git v1.3.7 "${argsV
 set(Vorbis_ROOT ${installed_dir} PARENT_SCOPE)
 
 message(STATUS "--------------build extenal Opus------------------------")
-set(argsOpus "")
+set(argsOpus "-DCMAKE_POSITION_INDEPENDENT_CODE=on")
 build_external_project(opus https://github.com/xiph/opus.git v1.5.2 "${argsOpus}")
 set(Opus_ROOT ${installed_dir} PARENT_SCOPE)
