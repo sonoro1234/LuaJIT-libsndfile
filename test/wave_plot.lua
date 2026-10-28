@@ -38,7 +38,7 @@ local function Resample(W,t1,t2,info,Buf,ch)
     for i=0,W-1 do
         local binini = math.floor(t1*info.samplerate+i*facx)
         local inibin = clip(binini,0,frames-1)
-        local endbin = clip(binini+binle-1,0,frames-1)
+        local endbin = clip(binini+binle,0,frames-1)
         Bt[i] = t1+ i*(t2-t1)/(W-1)
         Byl[i] = math.huge
         Byh[i] = -math.huge
